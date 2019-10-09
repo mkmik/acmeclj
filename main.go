@@ -76,7 +76,7 @@ func handleWindow(wi acme.WinInfo) error {
 }
 
 func execute(expr string) (string, error) {
-	c := exec.Command("arepl")
+	c := exec.Command("gonrepl")
 	c.Stdin = strings.NewReader(expr)
 	b, err := c.CombinedOutput()
 	return string(b), err
