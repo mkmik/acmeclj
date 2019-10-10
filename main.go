@@ -57,10 +57,10 @@ func handleWindow(wi acme.WinInfo) error {
 					if expanded && !strings.HasSuffix(d, ")") {
 						//	log.Printf("not executing %q", d)
 					} else {
-						if res, err := execute(d); err != nil {
+						res, err := execute(d)
+						win.Errf("%s", res)
+						if err != nil {
 							win.Errf("%v", err)
-						} else {
-							win.Errf("%s", res)
 						}
 					}
 					continue
