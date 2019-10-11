@@ -27,6 +27,8 @@ func handleWindow(wi acme.WinInfo) error {
 	}
 	win.SetErrorPrefix(wi.Name)
 
+	reporter := reporter{wi: wi}
+
 	go func() {
 		for e := range win.EventChan() {
 			switch e.C2 {
@@ -58,9 +60,9 @@ func handleWindow(wi acme.WinInfo) error {
 						//	log.Printf("not executing %q", d)
 					} else {
 						res, err := execute(d)
-						win.Errf("%s", res)
+						reporter.report("%s", res)
 						if err != nil {
-							win.Errf("%v", err)
+							reporter.report("%s", err)
 						}
 					}
 					continue
@@ -72,6 +74,24 @@ func handleWindow(wi acme.WinInfo) error {
 		}
 	}()
 
+	return nil
+}
+
+type reporter struct {
+	wi  acme.WinInfo
+	win *acme.Win
+}
+
+func (r *reporter) report(format string, args ...interface{}) error {
+	if r.win == nil {
+		w, err := acme.New()
+		if err != nil {
+			return err
+		}
+		r.win = w
+		w.Name("%s+REPL", r.wi.Name)
+	}
+	r.win.PrintTabbed(fmt.Sprintf(format, args...))
 	return nil
 }
 
