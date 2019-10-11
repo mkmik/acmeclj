@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"9fans.net/go/acme"
+	"github.com/golang/glog"
 )
 
 func handleNew(ev acme.LogEvent) error {
@@ -114,6 +115,7 @@ func run() error {
 
 func main() {
 	flag.Parse()
+	defer glog.Flush()
 
 	if err := run(); err != nil {
 		log.Fatal(err)

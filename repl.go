@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 
 	"9fans.net/go/acme"
+	"github.com/golang/glog"
 )
 
 type repl struct {
@@ -27,6 +27,8 @@ func (r *repl) enter(expr string) {
 }
 
 func (r *repl) eval(expr string) (string, error) {
+	r.debugLog("evaluating: %s", expr)
+
 	c := exec.Command("gonrepl")
 	c.Stdin = strings.NewReader(expr)
 	b, err := c.CombinedOutput()
@@ -55,11 +57,9 @@ func (r *repl) eventLoop() {
 		switch e.C2 {
 		case 'X': // execute in body
 			if e.Flag&1 == 0 {
-				if false {
-					log.Printf("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
-						e.C1, e.C2, e.Text, e.Flag,
-						e.Q0, e.Q1, e.OrigQ0, e.OrigQ1)
-				}
+				r.debugLog("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
+					e.C1, e.C2, e.Text, e.Flag,
+					e.Q0, e.Q1, e.OrigQ0, e.OrigQ1)
 
 				var (
 					f        func(*acme.Win, int, int) (string, error)
@@ -78,7 +78,7 @@ func (r *repl) eventLoop() {
 				}
 
 				if expanded && !strings.HasSuffix(d, ")") {
-					//	log.Printf("not executing %q", d)
+					r.debugLog("not executing %q", d)
 				} else {
 					r.enter(d)
 				}
@@ -89,4 +89,9 @@ func (r *repl) eventLoop() {
 			r.inw.WriteEvent(e)
 		}
 	}
+}
+
+func (r *repl) debugLog(format string, args ...interface{}) {
+	glog.Infof(format, args...)
+	glog.Flush()
 }
