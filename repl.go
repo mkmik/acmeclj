@@ -124,3 +124,12 @@ func (r *repl) eventLoop(win *acme.Win) {
 	defer r.Unlock()
 	r.lazyOutw = nil
 }
+
+func (r *repl) close() {
+	r.Lock()
+	defer r.Unlock()
+	if r.lazyOutw != nil {
+		win := r.lazyOutw
+		win.Del(true)
+	}
+}

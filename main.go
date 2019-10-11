@@ -71,6 +71,8 @@ func watchSourceWindow(win *acme.Win, r *repl) {
 			win.WriteEvent(e)
 		}
 	}
+	debugLog("source window closed")
+	r.close()
 }
 
 func around(win *acme.Win, b, e int) (string, error) {
