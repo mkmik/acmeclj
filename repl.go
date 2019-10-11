@@ -15,10 +15,19 @@ type repl struct {
 	wi       acme.WinInfo
 	lazyOutw *acme.Win
 	busych   chan bool
+	sid      string
 }
 
-func newRepl(wi acme.WinInfo) *repl {
-	return &repl{wi: wi, busych: make(chan bool, 1)}
+func newRepl(wi acme.WinInfo) (*repl, error) {
+	r := &repl{wi: wi, busych: make(chan bool, 1)}
+	b, err := exec.Command("gonrepl", "--clone").Output()
+	if err != nil {
+		return nil, err
+	}
+	r.sid = strings.TrimSpace(string(b))
+	debugLog("allocated sid %q", r.sid)
+
+	return r, nil
 }
 
 func (r *repl) enter(expr string) {
@@ -34,7 +43,7 @@ func (r *repl) eval(expr string) (string, error) {
 
 	defer r.Busy()()
 
-	c := exec.Command("gonrepl")
+	c := exec.Command("gonrepl", "-s", r.sid)
 	c.Stdin = strings.NewReader(expr)
 	b, err := c.CombinedOutput()
 	return string(b), err
@@ -131,5 +140,10 @@ func (r *repl) close() {
 	if r.lazyOutw != nil {
 		win := r.lazyOutw
 		win.Del(true)
+	}
+
+	_, err := exec.Command("gonrepl", "--close", "-s", r.sid).Output()
+	if err != nil {
+		glog.Errorf("%v", err)
 	}
 }

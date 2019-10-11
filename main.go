@@ -27,7 +27,10 @@ func handleWindow(wi acme.WinInfo) error {
 	}
 	win.SetErrorPrefix(wi.Name)
 
-	repl := newRepl(wi)
+	repl, err := newRepl(wi)
+	if err != nil {
+		return err
+	}
 	repl.start()
 	go watchSourceWindow(win, repl)
 
