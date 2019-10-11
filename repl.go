@@ -37,15 +37,27 @@ func (r *repl) eval(expr string) (string, error) {
 
 func (r *repl) report(format string, args ...interface{}) error {
 	if r.outw == nil {
-		w, err := acme.New()
+		w, err := r.createOutputWindow()
 		if err != nil {
 			return err
 		}
 		r.outw = w
-		w.Name("%s+REPL", r.wi.Name)
 	}
 	r.outw.PrintTabbed(fmt.Sprintf(format, args...))
+	r.outw.Ctl("clean")
 	return nil
+}
+
+func (r *repl) createOutputWindow() (*acme.Win, error) {
+	w, err := acme.New()
+	if err != nil {
+		return nil, err
+	}
+	w.Name("%s+REPL", r.wi.Name)
+	w.Ctl("clean")
+	w.Ctl("nomark")
+	w.Ctl("nomenu")
+	return w, nil
 }
 
 func (r *repl) start() {
