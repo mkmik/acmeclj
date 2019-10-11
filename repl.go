@@ -143,7 +143,7 @@ func (r *repl) eventLoop() {
 				if expanded && !strings.HasSuffix(d, ")") {
 					r.debugLog("not executing %q", d)
 				} else {
-					r.enter(d)
+					go r.enter(d)
 				}
 				continue
 			}
