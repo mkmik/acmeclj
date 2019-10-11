@@ -4,19 +4,22 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"9fans.net/go/acme"
 	"github.com/golang/glog"
 )
 
 type repl struct {
+	sync.Mutex
 	wi       acme.WinInfo
 	inw      *acme.Win
 	lazyOutw *acme.Win
+	busych   chan bool
 }
 
 func newRepl(wi acme.WinInfo, win *acme.Win) *repl {
-	return &repl{wi: wi, inw: win}
+	return &repl{wi: wi, inw: win, busych: make(chan bool, 1)}
 }
 
 func (r *repl) enter(expr string) {
@@ -30,12 +33,7 @@ func (r *repl) enter(expr string) {
 func (r *repl) eval(expr string) (string, error) {
 	r.debugLog("evaluating: %s", expr)
 
-	outw, err := r.outWin()
-	if err != nil {
-		return "", err
-	}
-	outw.Ctl("dirty")
-	defer func() { outw.Ctl("clean") }()
+	defer r.Busy()()
 
 	c := exec.Command("gonrepl")
 	c.Stdin = strings.NewReader(expr)
@@ -54,6 +52,9 @@ func (r *repl) report(format string, args ...interface{}) error {
 }
 
 func (r *repl) outWin() (*acme.Win, error) {
+	r.Lock()
+	defer r.Unlock()
+
 	if r.lazyOutw == nil {
 		w, err := r.createOutputWindow()
 		if err != nil {
@@ -78,6 +79,40 @@ func (r *repl) createOutputWindow() (*acme.Win, error) {
 
 func (r *repl) start() {
 	go r.eventLoop()
+	go r.busyController()
+}
+
+func (r *repl) Busy() func() {
+	r.busych <- true
+	return func() {
+		r.busych <- false
+	}
+}
+func (r *repl) busyController() {
+	var outw *acme.Win
+	busy := 0
+
+	for b := range r.busych {
+		if outw == nil {
+			w, err := r.outWin()
+			if err != nil {
+				glog.Errorf("%v", err)
+				continue
+			}
+			outw = w
+		}
+		if b {
+			busy++
+		} else {
+			busy--
+		}
+		r.debugLog("busyness is %d, setting flag accordingly", busy)
+		if busy > 0 {
+			outw.Ctl("dirty")
+		} else {
+			outw.Ctl("clean")
+		}
+	}
 }
 
 func (r *repl) eventLoop() {
