@@ -10,8 +10,9 @@ import (
 )
 
 type repl struct {
-	wi        acme.WinInfo
-	inw, outw *acme.Win
+	wi       acme.WinInfo
+	inw      *acme.Win
+	lazyOutw *acme.Win
 }
 
 func newRepl(wi acme.WinInfo, win *acme.Win) *repl {
@@ -29,6 +30,13 @@ func (r *repl) enter(expr string) {
 func (r *repl) eval(expr string) (string, error) {
 	r.debugLog("evaluating: %s", expr)
 
+	outw, err := r.outWin()
+	if err != nil {
+		return "", err
+	}
+	outw.Ctl("dirty")
+	defer func() { outw.Ctl("clean") }()
+
 	c := exec.Command("gonrepl")
 	c.Stdin = strings.NewReader(expr)
 	b, err := c.CombinedOutput()
@@ -36,16 +44,24 @@ func (r *repl) eval(expr string) (string, error) {
 }
 
 func (r *repl) report(format string, args ...interface{}) error {
-	if r.outw == nil {
+	outw, err := r.outWin()
+	if err != nil {
+		return err
+	}
+	outw.PrintTabbed(fmt.Sprintf(format, args...))
+	outw.Ctl("clean")
+	return nil
+}
+
+func (r *repl) outWin() (*acme.Win, error) {
+	if r.lazyOutw == nil {
 		w, err := r.createOutputWindow()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		r.outw = w
+		r.lazyOutw = w
 	}
-	r.outw.PrintTabbed(fmt.Sprintf(format, args...))
-	r.outw.Ctl("clean")
-	return nil
+	return r.lazyOutw, nil
 }
 
 func (r *repl) createOutputWindow() (*acme.Win, error) {
