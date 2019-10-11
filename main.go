@@ -27,10 +27,50 @@ func handleWindow(wi acme.WinInfo) error {
 	}
 	win.SetErrorPrefix(wi.Name)
 
-	repl := newRepl(wi, win)
+	repl := newRepl(wi)
 	repl.start()
+	go watchSourceWindow(win, repl)
 
 	return nil
+}
+
+func watchSourceWindow(win *acme.Win, r *repl) {
+	for e := range win.EventChan() {
+		switch e.C2 {
+		case 'X': // execute in body
+			if e.Flag&1 == 0 {
+				debugLog("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
+					e.C1, e.C2, e.Text, e.Flag,
+					e.Q0, e.Q1, e.OrigQ0, e.OrigQ1)
+
+				var (
+					f        func(*acme.Win, int, int) (string, error)
+					expanded bool
+				)
+				if e.Q0 == e.OrigQ0 && e.Q1 == e.OrigQ1 {
+					f = readRange
+				} else {
+					expanded = true
+					f = around
+				}
+
+				d, err := f(win, e.Q0, e.Q1)
+				if err != nil {
+					win.Errf("%v", err)
+				}
+
+				if expanded && !strings.HasSuffix(d, ")") {
+					debugLog("not executing %q", d)
+				} else {
+					go r.enter(d)
+				}
+				continue
+			}
+			fallthrough
+		default:
+			win.WriteEvent(e)
+		}
+	}
 }
 
 func around(win *acme.Win, b, e int) (string, error) {

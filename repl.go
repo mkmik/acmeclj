@@ -13,13 +13,12 @@ import (
 type repl struct {
 	sync.Mutex
 	wi       acme.WinInfo
-	inw      *acme.Win
 	lazyOutw *acme.Win
 	busych   chan bool
 }
 
-func newRepl(wi acme.WinInfo, win *acme.Win) *repl {
-	return &repl{wi: wi, inw: win, busych: make(chan bool, 1)}
+func newRepl(wi acme.WinInfo) *repl {
+	return &repl{wi: wi, busych: make(chan bool, 1)}
 }
 
 func (r *repl) enter(expr string) {
@@ -42,12 +41,12 @@ func (r *repl) eval(expr string) (string, error) {
 }
 
 func (r *repl) report(format string, args ...interface{}) error {
-	outw, err := r.outWin()
+	win, err := r.outWin()
 	if err != nil {
 		return err
 	}
-	outw.PrintTabbed(fmt.Sprintf(format, args...))
-	outw.Ctl("clean")
+	win.PrintTabbed(fmt.Sprintf(format, args...))
+	win.Ctl("clean")
 	return nil
 }
 
@@ -89,17 +88,17 @@ func (r *repl) Busy() func() {
 	}
 }
 func (r *repl) busyController() {
-	var outw *acme.Win
+	var win *acme.Win
 	busy := 0
 
 	for b := range r.busych {
-		if outw == nil {
+		if win == nil {
 			w, err := r.outWin()
 			if err != nil {
 				glog.Errorf("%v", err)
 				continue
 			}
-			outw = w
+			win = w
 		}
 		if b {
 			busy++
@@ -108,48 +107,13 @@ func (r *repl) busyController() {
 		}
 		debugLog("busyness is %d, setting flag accordingly", busy)
 		if busy > 0 {
-			outw.Ctl("dirty")
+			win.Ctl("dirty")
 		} else {
-			outw.Ctl("clean")
+			win.Ctl("clean")
 		}
 	}
 }
 
 func (r *repl) eventLoop() {
-	for e := range r.inw.EventChan() {
-		switch e.C2 {
-		case 'X': // execute in body
-			if e.Flag&1 == 0 {
-				debugLog("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
-					e.C1, e.C2, e.Text, e.Flag,
-					e.Q0, e.Q1, e.OrigQ0, e.OrigQ1)
 
-				var (
-					f        func(*acme.Win, int, int) (string, error)
-					expanded bool
-				)
-				if e.Q0 == e.OrigQ0 && e.Q1 == e.OrigQ1 {
-					f = readRange
-				} else {
-					expanded = true
-					f = around
-				}
-
-				d, err := f(r.inw, e.Q0, e.Q1)
-				if err != nil {
-					r.inw.Errf("%v", err)
-				}
-
-				if expanded && !strings.HasSuffix(d, ")") {
-					debugLog("not executing %q", d)
-				} else {
-					go r.enter(d)
-				}
-				continue
-			}
-			fallthrough
-		default:
-			r.inw.WriteEvent(e)
-		}
-	}
 }
