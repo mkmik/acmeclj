@@ -72,6 +72,11 @@ func handleDel(ev acme.LogEvent) error {
 	return nil
 }
 
+func debugLog(format string, args ...interface{}) {
+	glog.Infof(format, args...)
+	glog.Flush()
+}
+
 func isClojure(name string) bool {
 	return strings.HasSuffix(name, "clj")
 }

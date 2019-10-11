@@ -31,7 +31,7 @@ func (r *repl) enter(expr string) {
 }
 
 func (r *repl) eval(expr string) (string, error) {
-	r.debugLog("evaluating: %s", expr)
+	debugLog("evaluating: %s", expr)
 
 	defer r.Busy()()
 
@@ -106,7 +106,7 @@ func (r *repl) busyController() {
 		} else {
 			busy--
 		}
-		r.debugLog("busyness is %d, setting flag accordingly", busy)
+		debugLog("busyness is %d, setting flag accordingly", busy)
 		if busy > 0 {
 			outw.Ctl("dirty")
 		} else {
@@ -120,7 +120,7 @@ func (r *repl) eventLoop() {
 		switch e.C2 {
 		case 'X': // execute in body
 			if e.Flag&1 == 0 {
-				r.debugLog("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
+				debugLog("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
 					e.C1, e.C2, e.Text, e.Flag,
 					e.Q0, e.Q1, e.OrigQ0, e.OrigQ1)
 
@@ -141,7 +141,7 @@ func (r *repl) eventLoop() {
 				}
 
 				if expanded && !strings.HasSuffix(d, ")") {
-					r.debugLog("not executing %q", d)
+					debugLog("not executing %q", d)
 				} else {
 					go r.enter(d)
 				}
@@ -152,9 +152,4 @@ func (r *repl) eventLoop() {
 			r.inw.WriteEvent(e)
 		}
 	}
-}
-
-func (r *repl) debugLog(format string, args ...interface{}) {
-	glog.Infof(format, args...)
-	glog.Flush()
 }
