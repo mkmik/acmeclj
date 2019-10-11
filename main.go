@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 
 	"9fans.net/go/acme"
@@ -27,79 +26,10 @@ func handleWindow(wi acme.WinInfo) error {
 	}
 	win.SetErrorPrefix(wi.Name)
 
-	reporter := reporter{wi: wi}
-
-	go func() {
-		for e := range win.EventChan() {
-			switch e.C2 {
-			case 'X': // execute in body
-				if e.Flag&1 == 0 {
-					if false {
-						log.Printf("Got execute event %c %c %q %v q0 f:%d q1 %d (orig q0 %d q1 %d)",
-							e.C1, e.C2, e.Text, e.Flag,
-							e.Q0, e.Q1, e.OrigQ0, e.OrigQ1)
-					}
-
-					var (
-						f        func(*acme.Win, int, int) (string, error)
-						expanded bool
-					)
-					if e.Q0 == e.OrigQ0 && e.Q1 == e.OrigQ1 {
-						f = readRange
-					} else {
-						expanded = true
-						f = around
-					}
-
-					d, err := f(win, e.Q0, e.Q1)
-					if err != nil {
-						win.Errf("%v", err)
-					}
-
-					if expanded && !strings.HasSuffix(d, ")") {
-						//	log.Printf("not executing %q", d)
-					} else {
-						res, err := execute(d)
-						reporter.report("%s", res)
-						if err != nil {
-							reporter.report("%s", err)
-						}
-					}
-					continue
-				}
-				fallthrough
-			default:
-				win.WriteEvent(e)
-			}
-		}
-	}()
+	repl := newRepl(wi, win)
+	repl.start()
 
 	return nil
-}
-
-type reporter struct {
-	wi  acme.WinInfo
-	win *acme.Win
-}
-
-func (r *reporter) report(format string, args ...interface{}) error {
-	if r.win == nil {
-		w, err := acme.New()
-		if err != nil {
-			return err
-		}
-		r.win = w
-		w.Name("%s+REPL", r.wi.Name)
-	}
-	r.win.PrintTabbed(fmt.Sprintf(format, args...))
-	return nil
-}
-
-func execute(expr string) (string, error) {
-	c := exec.Command("gonrepl")
-	c.Stdin = strings.NewReader(expr)
-	b, err := c.CombinedOutput()
-	return string(b), err
 }
 
 func around(win *acme.Win, b, e int) (string, error) {
