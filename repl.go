@@ -59,6 +59,7 @@ func (r *repl) outWin() (*acme.Win, error) {
 		if err != nil {
 			return nil, err
 		}
+		go r.eventLoop(w)
 		r.lazyOutw = w
 	}
 	return r.lazyOutw, nil
@@ -77,7 +78,6 @@ func (r *repl) createOutputWindow() (*acme.Win, error) {
 }
 
 func (r *repl) start() {
-	go r.eventLoop()
 	go r.busyController()
 }
 
@@ -114,6 +114,13 @@ func (r *repl) busyController() {
 	}
 }
 
-func (r *repl) eventLoop() {
+func (r *repl) eventLoop(win *acme.Win) {
+	for e := range win.EventChan() {
+		win.WriteEvent(e)
+	}
 
+	debugLog("repl closed")
+	r.Lock()
+	defer r.Unlock()
+	r.lazyOutw = nil
 }
